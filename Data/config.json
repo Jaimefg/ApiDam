@@ -1,0 +1,25 @@
+{
+  "API": {
+    "BASE_URL": "https://mediaset.prod.carbyne.ps.ooyala.com",
+    "LOGIN": "/app.php/tokens",
+    "CONTENT_GROUPS": "/app.php/api/contentgroups",
+    "CG_TYPES" :{
+      "SERIES": "Series",
+      "SEASON": "Season",
+      "EPISODE": "Episode"
+    }
+  },
+  "credentials": {
+    "username": "jfradera",
+    "password": "Jfradera1234",
+    "rembember": false
+  },
+  "default_filter":{
+    "limit":"350",
+    "type": "Series",
+    "q": "",
+    "order": "desc",
+    "orderBy": "createdAt"
+
+  }
+}
