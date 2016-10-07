@@ -2,6 +2,7 @@ var request = require('../ServerRequest/Request'),
     globals = require('../Data/globals.json'),
     config = require('../Data/config.json'),
     fs = require('fs'),
+    dbUtils = require('../DataBase/DbUtils'),
     _ = require("underscore");
 
 
@@ -78,20 +79,24 @@ var printItem = function(itemList, stdOut){
 
         global.contentLogger += 1;
 
-        var output = item.localizableTitles[0].title_long + "|"
-            + getMainCategory(item) + "|"
-            + item.id + "|"
-            + item.uri_id + "|"
-            + (item._links && item._links["carbyne:series"] ? item._links["carbyne:series"].href.split("/").last() : "") + "|"
-            + (item._links && item._links["carbyne:season"] && item.type != "Series" ? item._links["carbyne:season"].href.split("/").last() : "") + "|"
-            + item.type + "|"
-            + item.created_at + "|"
-            + item.updated_at + '\n';
+        var contentGroup = dbUtils.models.contentGroup;
+
+        var dbContentGroup = new contentGroup({
+            title: item.localizableTitles[0].title_long,
+            maing_category: getMainCategory(item),
+            internal_id: item.id,
+            external_id: item.uri_id,
+            series_id: (item._links && item._links["carbyne:series"] ? item._links["carbyne:series"].href.split("/").last() : ""),
+            season_id: (item._links && item._links["carbyne:season"] && item.type != "Series" ? item._links["carbyne:season"].href.split("/").last() : ""),
+            type: item.type,
+            created_at: item.created_at,
+            updated_at: item.updated_at
+        });
 
         if(stdOut)
-            console.log(output);
+            console.log(dbContentGroup.cgToStr);
         else
-            fs.appendFile('C:/Users/jfradera/Desktop/Report Files/Test.txt', output, 'utf8', (err) => {
+            fs.appendFile('C:/Users/jfradera/Desktop/Report Files/Test.txt', dbContentGroup.cgToStr, 'utf8', (err) => {
                 if(err != null)
                     console.log("Error en el fichero: " + err);
             });

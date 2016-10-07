@@ -12,6 +12,7 @@
     "async": "^2.0.1",
     "bee-queue": "^0.3.0",
     "minimist": "^1.2.0",
+    "mongoose": "^4.6.3",
     "msexcel-builder": "0.0.2",
     "request": "^2.75.0",
     "requestretry": "^1.12.0",
