@@ -2,8 +2,11 @@ var request = require('../ServerRequest/Request'),
     globals = require('../Data/globals.json'),
     config = require('../Data/config.json'),
     fs = require('fs'),
-    dbUtils = require('../DataBase/DbUtils'),
     _ = require("underscore");
+
+//Base de datos Mongo
+var db = require('../Database/dbUtils');
+
 
 
 var login = function (callback) {
@@ -29,18 +32,17 @@ var login = function (callback) {
 
 }
 
-
 var loadById = function(id, callback) {
 
     request.get(config.API.BASE_URL + config.API.CONTENT_GROUPS + "/" + id, function(error, result){
         if(error != null){
+            db.insert({ error: error.statusCode, id : id, url: error.url}, db.Collections.FAILED_CONTENT_GROUPS);
             console.log("URL: " + error.url + " Error " + error.statusCode);
         }
         else
             callback(result);
     });
 }
-
 
 var loadContentByType = function(params, callback){
 
@@ -54,6 +56,7 @@ var loadContentByType = function(params, callback){
 
     request.get(config.API.BASE_URL + config.API.CONTENT_GROUPS + params.attrToQueryString(), function(error, result){
         if(error != null){
+            db.insert({ error: error.statusCode, url: error.url}, db.Collections.FAILED_CONTENT_GROUPS);
             console.log("URL: " + error.url + " Error " + error.statusCode);
         }
         else
@@ -61,7 +64,6 @@ var loadContentByType = function(params, callback){
     });
 
 }
-
 
 var printItem = function(itemList, stdOut){
 
@@ -72,31 +74,29 @@ var printItem = function(itemList, stdOut){
     else
         items.push(itemList);
 
-    if(global.contentLogger % 20 == 0)
-         console.log("Ficheros procesados: " + global.contentLogger);
-
     items.map(function(item) {
 
         global.contentLogger += 1;
 
-        var contentGroup = dbUtils.models.contentGroup;
+        var ContentGroup = {}
 
-        var dbContentGroup = new contentGroup({
-            title: item.localizableTitles[0].title_long,
-            maing_category: getMainCategory(item),
-            internal_id: item.id,
-            external_id: item.uri_id,
-            series_id: (item._links && item._links["carbyne:series"] ? item._links["carbyne:series"].href.split("/").last() : ""),
-            season_id: (item._links && item._links["carbyne:season"] && item.type != "Series" ? item._links["carbyne:season"].href.split("/").last() : ""),
-            type: item.type,
-            created_at: item.created_at,
-            updated_at: item.updated_at
-        });
+        ContentGroup.title = item.localizableTitles[0].title_long;
+        ContentGroup.main_category = getMainCategory(item);
+        ContentGroup.internal_id = item.id;
+        ContentGroup.external_id = item.uri_id;
+        ContentGroup.series_id = (item._links && item._links["carbyne:series"] ? item._links["carbyne:series"].href.split("/").last() : "");
+        ContentGroup.season_id = (item._links && item._links["carbyne:season"] && item.type != "Series" ? item._links["carbyne:season"].href.split("/").last() : "");
+        ContentGroup.type = item.type;
+        ContentGroup.created_at = item.created_at;
+        ContentGroup.updated_at = item.updated_at;
 
-        if(stdOut)
-            console.log(dbContentGroup.cgToStr);
+
+        if(stdOut){
+            console.log(ContentGroup.attrToString());
+            db.insert(ContentGroup, db.Collections.CONTENT_GROUPS);
+        }
         else
-            fs.appendFile('C:/Users/jfradera/Desktop/Report Files/Test.txt', dbContentGroup.cgToStr, 'utf8', (err) => {
+            fs.appendFile('C:/Users/jfradera/Desktop/Report Files/Test.txt', ContentGroup.attrToString(), 'utf8', (err) => {
                 if(err != null)
                     console.log("Error en el fichero: " + err);
             });
@@ -106,17 +106,63 @@ var printItem = function(itemList, stdOut){
 }
 
 var loadChildren = function(item, callback){
+
+    //TODO: Hay que hacer esta funcion recursiva
+    self = this.loadChildren;
+
     var childrenIds = getChildrenIds(item);
 
-    var children = _.map(childrenIds, function(id) {
+    _.map(childrenIds, function(id) {
         loadById(id, function (result) {
-            if(result != "")
-            //children.push(JSON.parse(result))
+            if(result != ""){
+                var objRes = JSON.parse(result);
+
+                //Si el contenido no es un episodio se vuelven a buscar los descendientes
+                if(objRes.type != config.API.CG_TYPES.EPISODE)
+                    self.call(undefined, objRes,callback);
+
+                //El callback se llamara por cada uno de los contenidos
                 callback(result);
+            }
         });
     });
 }
 
+var retryErrors = function() {
+    db.find({}, db.Collections.FAILED_CONTENT_GROUPS, function(failedItems){
+        _.map(failedItems, function(item){
+            //Cargamos el contenido fallado
+            loadById(item.id, function(result){
+                if(result != ""){
+
+                    var itemToRemove = JSON.parse(result);
+
+                    printItem(itemToRemove.toArray(), true);
+
+                    //Eliminamos los contenidos de la lista de errores
+                    _.map(itemToRemove.toArray(), function(item) {
+                        db.remove({ id : item.id}, db.Collections.FAILED_CONTENT_GROUPS);
+                    });
+                }
+
+                /*//Cargamos sus hijos
+                loadChildren(result, function(result){
+                    if(result != null){
+                        printItem(result,true);
+                        //Si es una temporada cargamos los hijos otra vez
+                        if(result[0].type == "Season"){
+                            loadChildren(result, function(result){
+                                if(result != null){
+                                    printItem(result, true);
+                                }
+                            });
+                        }
+                    }
+                });*/
+            })
+        })
+    })
+}
 
 //Elementos privados
 var getMainCategory = function(item){
@@ -156,6 +202,7 @@ module.exports = {
     loadById : loadById,
     login : login,
     loadContentByType : loadContentByType,
+    retryErrors : retryErrors,
     printItem : printItem,
     loadChildren : loadChildren
 }

@@ -1,15 +1,14 @@
 //Librerias propias
 var config = require('./Data/config.json'),
     DAM = require('./Utilities/DAM'),
-    db = require('./DataBase/DbUtils'),
-    async = require('async'),
     utils = require('./Utilities/Utils');
+
 
 //Librerias externas
 var _ = require('underscore'),
     argv = require('minimist')(process.argv.slice(2));
 
-var app = function () {
+var app = (function () {
     //Añadimos funcionalidades a los objetos basicos que utilizaremos despues
     utils.extendUtils();
 
@@ -23,14 +22,16 @@ var app = function () {
         }
 
         DAM.login(function (result) {
-
             DAM.loadContentByType(filter, function(result){
+
                 var content = JSON.parse(result);
                 DAM.printItem(content._embedded.item, argv.p);
 
                 if(argv.c){
                     _.map(content._embedded.item.toArray(), function(item) {
+
                         DAM.loadChildren(item, function(result) {
+
                             if (result != "") {
                                 var items = JSON.parse(result);
                                 DAM.printItem(items, argv.p);
@@ -38,9 +39,9 @@ var app = function () {
                                 //Cargamos otro nivel
                                 _.map(items.toArray(), function(item) {
                                     DAM.loadChildren(item, function(result) {
+
                                         if (result != "") {
                                             var items = JSON.parse(result);
-
                                             DAM.printItem(items, argv.p);
 
                                         };
@@ -58,20 +59,27 @@ var app = function () {
         DAM.login(function (result) {
             DAM.loadById(argv.i, function(item){
 
-                DAM.printItem(JSON.parse(item), argv.o);
+                var parsedItem = JSON.parse(item);
+
+                DAM.printItem(parsedItem, argv.p);
 
                 if(argv.c){
-                    DAM.loadChildren(item, function(result) {
+                    DAM.loadChildren(parsedItem, function(result) {
                         if (result != "") {
                             var items = JSON.parse(result);
 
-                            DAM.printItem(items, argv.o);
+                            DAM.printItem(items, argv.p);
 
                         };
                     });
                 }
             })
         });
+    }
+    else if(argv.e != null){
+        DAM.login(function(result){
+            DAM.retryErrors();
+        });    
     }
     else if(argv.h != null){
         console.log(
@@ -82,13 +90,9 @@ var app = function () {
             "\t -o: Ordena los elementos según creacion o actualización (createdAt, updatedAt) \n" +
             "\t -l: Límite de contenidos\n" +
             "\t -c: Se devolverán también los hijos de los contenidos encontrados\n" +
-            "\t -p: Muestra los resultados por pantalla"
+            "\t -p: Muestra los resultados por pantalla\n" +
+            "\t -e: Procesa la colección de assets fallidos"
         );
     }
 
-
-};
-
-async.waterfall([
-    app
-],db.disconnect());
+})();

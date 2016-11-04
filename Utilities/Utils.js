@@ -19,7 +19,7 @@ module.exports.extendUtils = function() {
      * Convierte todas las propiedades de un objeto para utilizarlas en una querystring
      */
     if(!Object.prototype.attrToQueryString){
-        Object.prototype.attrToQueryString = function objToString () {
+        Object.prototype.attrToQueryString = function () {
             var str = '?', obj = this;
             for (var p in obj) {
                 if (obj.hasOwnProperty(p)) {
@@ -29,6 +29,23 @@ module.exports.extendUtils = function() {
             return str.slice(0, -1);
         };
     };
+
+
+    /**
+     * Convierte todas las propiedades de un objeto para utilizarlas en una querystring
+     */
+    if(!Object.prototype.attrToString){
+        Object.prototype.attrToString = function () {
+            var str = '', obj = this;
+            for (var p in obj) {
+                if (obj.hasOwnProperty(p)) {
+                    str += obj[p] + '|';
+                }
+            }
+            return str.slice(0, -1);
+        };
+    };
+
 
     /**
      * Convierte cualquier objeto en un array
